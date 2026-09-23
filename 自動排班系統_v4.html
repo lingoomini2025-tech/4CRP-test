@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大隊暨中隊自動排班系統</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<!-- Google API / Google Identity Services -->
+<script src="https://apis.google.com/js/api.js" async onload="window.__gapiScriptLoaded=true; if(window.gapiLoaded) gapiLoaded();"></script>
+<script src="https://accounts.google.com/gsi/client" async onload="window.__gisScriptLoaded=true; if(window.gisLoaded) gisLoaded();"></script>
+<style>
+  :root{
+    --bg:#0B132B; --panel:#1C2541; --panel-line:#3A506B;
+    --paper:#F4F1DE; --paper-line:#E0DDC7; --ink:#1F2421;
+    --text-light:#E0FBFC; --text-dim:#8DA9C4;
+    --duty:#E0A96D; --rest:#48A9A6; --danger:#C94A29; --warn-bg:#3F2318;
+    --unit-zhong:#5BC0BE; --unit-lei:#E76F51; --unit-tong:#F4A261; --unit-bu:#2A9D8F;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text-light);font-family:'Inter',sans-serif;line-height:1.5;}
+  header{padding:20px 24px;border-bottom:1px solid var(--panel-line);background:#0E1838;}
+  header h1{font-family:'Noto Serif TC',serif;font-weight:700;font-size:24px;margin:0 0 6px;color:#F4F1DE;}
+  header p{margin:0;color:var(--text-dim);font-size:13px;}
+  main{max-width:1600px;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:18px;}
+  .row{display:grid;grid-template-columns:390px 1fr;gap:18px;align-items:start;}
+  @media (max-width:1080px){ .row{grid-template-columns:1fr;} }
+  .panel{background:var(--panel);border:1px solid var(--panel-line);border-radius:6px;padding:18px;box-shadow:0 4px 12px rgba(0,0,0,0.15);}
+  .panel h2{font-family:'Noto Serif TC',serif;font-size:15px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--panel-line);color:#F4F1DE;}
+  label{display:block;font-size:12px;color:var(--text-dim);margin:10px 0 4px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;background:#0B132B;border:1px solid var(--panel-line);color:var(--text-light);
+    padding:7px 9px;border-radius:4px;font-size:13px;font-family:'Inter',sans-serif;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--duty);outline-offset:1px;}
+  .btn{display:inline-block;padding:8px 12px;background:var(--duty);color:#1A130B;border:none;border-radius:4px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:0.15s;}
+  .btn:hover{filter:brightness(1.1);}
+  .btn.block{width:100%;margin-top:10px;}
+  .btn.secondary{background:transparent;border:1px solid var(--panel-line);color:var(--text-light);font-weight:500;}
+  .btn.small{padding:3px 7px;font-size:11px;}
+  .btn.paper-secondary{background:transparent;border:1px solid var(--paper-line);color:var(--ink);font-weight:600;}
+  .btn.paper-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);font-weight:600;}
+
+  /* 單位標籤 */
+  .badge-unit{font-size:10px;padding:2px 5px;border-radius:3px;font-weight:600;}
+  .u-中{background:#1D3557;color:#A8DADC;}
+  .u-雷{background:#4A1E17;color:#F4A261;}
+  .u-通{background:#483216;color:#E9C46A;}
+  .u-補{background:#1B3B36;color:#70C1B3;}
+
+  .people-table-container{max-height:280px;overflow-y:auto;border:1px solid var(--panel-line);border-radius:4px;margin-bottom:10px;}
+  .people-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .people-table th{text-align:center;color:var(--text-dim);font-weight:600;padding:6px 3px;border-bottom:1px solid var(--panel-line);position:sticky;top:0;background:var(--panel);z-index:2;}
+  .people-table th:first-child{text-align:left;padding-left:6px;}
+  .people-table td{padding:5px 3px;border-bottom:1px solid #23344E;text-align:center;vertical-align:middle;}
+  .people-table td:first-child{text-align:left;padding-left:6px;}
+  .people-table input[type=checkbox]{accent-color:var(--duty);width:13px;height:13px;}
+  .people-table .del-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:11px;}
+
+  .ledger{background:var(--paper);color:var(--ink);border-radius:6px;overflow:hidden;}
+  .ledger-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:2px solid var(--ink);flex-wrap:wrap;gap:8px;}
+  .ledger-head h2{font-family:'Noto Serif TC',serif;font-size:16px;margin:0;color:var(--ink);}
+  .ledger-head p{margin:2px 0 0;font-size:11.5px;color:#555;}
+  .ledger-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .ledger-body{padding:14px;}
+
+  .grid-scroll{overflow-x:auto;max-height:680px;}
+  table.gridtable{border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap;}
+  table.gridtable th, table.gridtable td{border:1px solid var(--paper-line);padding:4px 5px;text-align:center;}
+  table.gridtable thead th{background:#E9E4CE;font-family:'IBM Plex Mono',monospace;font-weight:600;position:sticky;top:0;z-index:3;}
+  table.gridtable th.rowlabel, table.gridtable td.rowlabel{
+    position:sticky;left:0;background:#E9E4CE;text-align:left;font-weight:600;z-index:2;min-width:185px;
+  }
+  table.gridtable thead th.rowlabel{z-index:4;}
+  table.gridtable td.cell{cursor:pointer;font-family:'IBM Plex Mono',monospace;min-width:48px;}
+  table.gridtable td.cell:hover{background:#DED9C0;}
+  table.gridtable td.cell.unmet{background:var(--warn-bg);color:#F4A261;font-weight:700;}
+  table.gridtable td.cell.override{background:rgba(224,169,109,0.28);font-weight:700;}
+  table.gridtable td.cell.conflict{background:rgba(201,74,41,0.25)!important;outline:2px solid var(--danger);color:#8A1C0E!important;font-weight:700;}
+  table.gridtable td.cell.inactive{background:#E0DBC4;color:#9E9780;cursor:default;}
+  table.gridtable tr.group-gap td, table.gridtable tr.group-gap th{border-top:2px solid #2B2D42;}
+  table.gridtable th.weekend{color:#9E2A2B;background:#DFD8BE;}
+  table.gridtable td.chkcell input[type=checkbox]{accent-color:var(--rest);}
+  table.gridtable td.chkcell input[type=number]{width:44px;padding:2px;font-size:11px;text-align:center;background:#fff;color:#000;border:1px solid #ccc;}
+
+  table.stats{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+  table.stats th{text-align:center;background:#E2DCBD;padding:6px 4px;border:1px solid var(--paper-line);font-weight:600;}
+  table.stats td{padding:5px 4px;border:1px solid var(--paper-line);text-align:center;font-family:'IBM Plex Mono',monospace;}
+  table.stats td.name{text-align:left;padding-left:8px;font-family:'Inter',sans-serif;font-weight:600;}
+
+  /* 個人出勤甘特圖 */
+  .timeline-container{margin-top:14px;background:#EDE7D3;padding:12px;border-radius:4px;border:1px solid var(--paper-line);}
+  .timeline-scroll{overflow-x:auto;max-height:400px;margin-top:8px;}
+  .timeline-table{border-collapse:collapse;font-size:10.5px;white-space:nowrap;background:#FFF;}
+  .timeline-table th, .timeline-table td{border:1px solid #CCC;padding:3px 2px;text-align:center;min-width:28px;}
+  .timeline-table th.time-hdr{background:#EAE4D0;font-size:9.5px;}
+  .timeline-table td.duty-block{color:#FFF;font-weight:bold;font-size:10px;}
+  .timeline-table td.rest-block{background:#8FD3BA;color:#104434;font-size:9.5px;}
+  .timeline-table td.free-block{background:#F9F9F9;color:#BBB;}
+
+  .stat-banner{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .stat-chip{background:#0B132B;border:1px solid var(--panel-line);border-radius:4px;padding:8px 12px;flex:1;min-width:110px;}
+  .stat-chip .num{font-family:'IBM Plex Mono',monospace;font-size:17px;display:block;color:var(--duty);font-weight:bold;}
+  .msg-list{padding:9px 12px;border-radius:3px;font-size:11.5px;margin-top:8px;line-height:1.6;}
+  .msg-list.unmet{background:var(--warn-bg);border-left:3px solid var(--danger);color:#F7B267;}
+  .msg-list.conflict{background:#3E2010;border-left:3px solid #F4A261;color:#FDE2B8;}
+
+  details.panel-collapse{background:var(--panel);border:1px solid var(--panel-line);border-radius:6px;}
+  details.panel-collapse summary{cursor:pointer;padding:12px 16px;font-family:'Noto Serif TC',serif;font-size:14.5px;list-style:none;color:#F4F1DE;}
+  details.panel-collapse summary::before{content:"▸ ";}
+  details.panel-collapse[open] summary::before{content:"▾ ";}
+  details.panel-collapse .inner{background:var(--paper);color:var(--ink);padding:14px;border-radius:0 0 6px 6px;}
+  details.panel-collapse .inner *{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>大隊暨各中隊自動排班管理系統</h1>
+  <p>雷塔班・通塔班・安宮・值日・門狗・伙委/副委・雞肝・島休 | 補休精準聯鎖・24H防閒置個人出勤監控</p>
+</header>
+
+<main>
+  <div class="row">
+    <!-- 左側面板：登入、人員與單位建置 -->
+    <section class="panel">
+      <h2>Google 雲端備份 / 載入</h2>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+        <button class="btn small" id="btn-g-auth">連結 Google 帳號</button>
+        <button class="btn secondary small" id="btn-g-save" disabled>備份資料</button>
+        <button class="btn secondary small" id="btn-g-load" disabled>還原備份</button>
+      </div>
+      <div id="g-status" style="font-size:11.5px; color:var(--text-dim); margin-bottom:14px; padding:6px; background:#0B132B; border-radius:4px;">
+        Google API 模組就緒中...
+      </div>
+
+      <h2>新增人員名單</h2>
+      <div style="display:flex; gap:6px; margin-bottom:6px;">
+        <select id="new-unit" style="width:75px;">
+          <option value="中">中</option>
+          <option value="雷">雷</option>
+          <option value="通">通</option>
+          <option value="補">補</option>
+        </select>
+        <input type="text" id="new-name" placeholder="輸入姓名">
+        <button class="btn small" id="add-person" style="white-space:nowrap;">新增</button>
+      </div>
+
+      <div class="people-table-container">
+        <table class="people-table">
+          <thead>
+            <tr>
+              <th>單位/姓名</th>
+              <th>雷塔</th><th>通塔</th><th>安宮</th><th>值日</th><th>門狗</th><th>雞肝</th><th>伙委</th><th>副委</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="people-rows"></tbody>
+        </table>
+      </div>
+
+      <label for="bulk-names">批次新增（格式：單位 姓名，每行一人，如：中 王大明）</label>
+      <textarea id="bulk-names" rows="2" placeholder="中 王大明&#10;雷 李建國"></textarea>
+      <button class="btn secondary block small" id="bulk-add">批次匯入人員名單</button>
+
+      <h2 style="margin-top:16px;">排班月份設定</h2>
+      <div style="display:flex; gap:10px;">
+        <div style="flex:1;"><label for="f-year">西元年</label><input type="number" id="f-year"></div>
+        <div style="flex:1;">
+          <label for="f-month">月份</label>
+          <select id="f-month">
+            <option value="0">1月</option><option value="1">2月</option><option value="2">3月</option>
+            <option value="3">4月</option><option value="4">5月</option><option value="5">6月</option>
+            <option value="6">7月</option><option value="7">8月</option><option value="8">9月</option>
+            <option value="9">10月</option><option value="10">11月</option><option value="11">12月</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn block" id="generate" style="margin-top:12px; font-size:14px;">⚡ 執行智慧公平自動排班</button>
+
+      <div style="font-size:11.5px; color:var(--text-dim); margin-top:12px; line-height:1.6;">
+        <b>系統硬性規則與優先順序：</b><br>
+        1. <b>優先順序</b>：雷塔 &gt; 通塔 &gt; 安宮 &gt; 值日 &gt; 門狗 &gt; 伙委 &gt; 副委 &gt; 雞肝 &gt; 島休。<br>
+        2. <b>補休機制</b>：雷塔、通塔晚班、安宮、值日下班皆鎖定補休至 13:30；雞肝大夜時段補休至 09:30；雞肝 1130-1330 補休至 15:30。<br>
+        3. <b>門狗防疲勞</b>：輪值滿一班間隔 6 小時才可再值；嚴格防範連續 3 天值艱苦時段。<br>
+        4. <b>伙委/副委聯鎖</b>：伙委僅值雞肝且強配 2 天島休；副委於伙委島休及休假時自動避開勤務。
+      </div>
+    </section>
+
+    <!-- 右側面板：班表、統計、甘特圖 -->
+    <section style="display:flex; flex-direction:column; gap:14px;">
+      <details class="panel-collapse" id="leave-panel">
+        <summary>人員公差/休假勾選表（休假日全天不排勤務）</summary>
+        <div class="inner">
+          <div class="grid-scroll"><table class="gridtable" id="leave-table"></table></div>
+        </div>
+      </details>
+
+      <details class="panel-collapse" id="req-panel">
+        <summary>每月各勤務開關與需求設定</summary>
+        <div class="inner">
+          <div class="grid-scroll"><table class="gridtable" id="req-table"></table></div>
+        </div>
+      </details>
+
+      <div class="panel">
+        <div id="stat-banner-wrap"></div>
+        <div class="ledger">
+          <div class="ledger-head">
+            <div>
+              <h2 id="ledger-title">本月總勤務總表</h2>
+              <p>點擊儲存格可手動指定人員（永久鎖定），其餘無鎖定班次將自動避開衝突重新計算。</p>
+            </div>
+            <div class="ledger-actions">
+              <button class="btn paper-secondary small" id="export-schedule">匯出班表 CSV</button>
+              <button class="btn paper-secondary small" id="export-stats">匯出統計 CSV</button>
+              <button class="btn paper-danger small" id="clear-overrides">清除手動調班</button>
+            </div>
+          </div>
+          <div class="ledger-body">
+            <div class="grid-scroll">
+              <table class="gridtable" id="schedule-table"></table>
+            </div>
+
+            <!-- 需求 1: 統計每個人各個值班的總數 -->
+            <h3 style="font-size:14px; margin:16px 0 6px; color:#1F2421; font-family:'Noto Serif TC',serif;">勤務分配統計匯總表（公平性檢核）</h3>
+            <div style="overflow-x:auto;">
+              <table class="stats" id="stats-table"></table>
+            </div>
+
+            <!-- 需求 2: 人員每天每時段出勤檢視器（防空閒） -->
+            <div class="timeline-container">
+              <h3 style="font-size:14px; margin:0 0 4px; color:#1F2421; font-family:'Noto Serif TC',serif;">人員 24 小時出勤/補休/空閒檢視甘特圖（防呆檢視）</h3>
+              <p style="font-size:11.5px; color:#555; margin:0 0 8px;">選擇人員以檢視當月每日 24 小時出勤分布，粉色=勤務、綠色=法定補休/島休、灰色=空閒時間。</p>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <label style="margin:0; font-weight:600; color:#1F2421;">選擇人員：</label>
+                <select id="timeline-person-select" style="width:200px; background:#FFF; color:#000; border:1px solid #CCC;"></select>
+              </div>
+              <div class="timeline-scroll">
+                <table class="timeline-table" id="timeline-table"></table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+// ================= 萬年曆與時間處理工具 =================
+function t(h,m){ return h*60+m; }
+function fmtHM(min){
+  min = ((min%1440)+1440)%1440;
+  return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');
+}
+function atTime(dObj,hh,mm,addDays=0){
+  return new Date(dObj.getFullYear(), dObj.getMonth(), dObj.getDate()+addDays, hh, mm, 0, 0);
+}
+function overlaps(s1,e1,s2,e2){ return s1.getTime() < e2.getTime() && s2.getTime() < e1.getTime(); }
+
+function getMonthDays(y, mIdx){
+  const cnt = new Date(y, mIdx+1, 0).getDate();
+  const arr = [];
+  for(let d=1; d<=cnt; d++) arr.push({ day:d, weekday:new Date(y, mIdx, d).getDay() });
+  return arr;
+}
+function ymd(y,mIdx,d){ return `${y}-${String(mIdx+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+const WEEK = ['日','一','二','三','四','五','六'];
+const HARD_MENKOU_STARTS = [t(23,30), t(1,30), t(3,30), t(11,30)]; // 艱苦時段
+
+// ================= 勤務班別結構定義 =================
+function makeMenkouShifts(){
+  const s = [];
+  for(let i=0; i<12; i++){
+    const start = (90 + i*120) % 1440; // 01:30 開始 每2小時
+    const end = (start + 120) % 1440;
+    const isNext = end <= start ? 1 : 0;
+    s.push({ key:`mk${i}`, start, end, dayOffset:isNext, label:`${fmtHM(start)}–${fmtHM(end)}${isNext?'(次)':''}` });
+  }
+  return s;
+}
+
+const DUTY_DEFS = {
+  leita:{ label:'雷塔班', shifts:[{key:'lt', start:t(7,0), end:t(7,0), dayOffset:1, label:'0700–0700(次)'}] },
+  tongta:{ label:'通塔班', shifts:[
+    {key:'tt1', start:t(7,0), end:t(11,30), dayOffset:0, label:'早班 0700–1130'},
+    {key:'tt2', start:t(11,30), end:t(17,30), dayOffset:0, label:'中班 1130–1730'},
+    {key:'tt3', start:t(17,30), end:t(7,0), dayOffset:1, label:'夜班 1730–0700(次)'}
+  ]},
+  angong:{ label:'安宮', shifts:[{key:'ag', start:t(6,0), end:t(6,0), dayOffset:1, label:'0600–0600(次)'}] },
+  zhiri:{ label:'值曰', shifts:[{key:'zr', start:t(7,30), end:t(7,30), dayOffset:1, label:'0730–0730(次)'}] },
+  menkou:{ label:'門狗', shifts: makeMenkouShifts() },
+  jigan:{ label:'雞肝', shifts:[
+    {key:'jg1', start:t(7,30), end:t(11,30), dayOffset:0, label:'早班 0730–1130', defaultCount:6},
+    {key:'jg2', start:t(11,30), end:t(17,30), dayOffset:0, label:'中班 1130–1730', defaultCount:5}
+    // 雞肝夜班 1730-0730 由門狗同仁兼任，邏輯於排班時直接連帶指派
+  ]},
+  daoxiu:{ label:'島休', shifts:[{key:'dx', start:t(7,0), end:t(23,30), dayOffset:0, label:'0700–2330', minCount:2, maxCount:6}] }
+};
+
+const PRIORITY_ORDER = ['leita','tongta','angong','zhiri','menkou','jigan','daoxiu'];
+const ALL_DUTIES = ['leita','tongta','angong','zhiri','menkou','jigan','daoxiu'];
+
+// ================= 人員資料管理 =================
+let people = [];
+let pid = 1;
+
+function savePeople(){
+  localStorage.setItem('qd_people', JSON.stringify(people.map(p=>({
+    ...p, leaveDates:Array.from(p.leaveDates)
+  }))));
+  localStorage.setItem('qd_pid', pid);
+}
+function loadPeople(){
+  const sp = localStorage.getItem('qd_people');
+  const spid = localStorage.getItem('qd_pid');
+  if(sp){
+    try{
+      people = JSON.parse(sp).map(p=>({ ...p, leaveDates:new Set(p.leaveDates) }));
+      pid = spid ? parseInt(spid,10) : (people.length ? Math.max(...people.map(p=>p.id))+1 : 1);
+    }catch(e){ people = []; }
+  }
+}
+
+function addPerson(unit, name){
+  name = name.trim();
+  if(!name) return;
+  people.push({
+    id: pid++, unit: unit||'中', name,
+    isHuowei: false, isFuwei: false,
+    elig: {leita:true, tongta:true, angong:true, zhiri:true, menkou:true, jigan:true, daoxiu:true},
+    leaveDates: new Set()
+  });
+  savePeople();
+  renderPeople();
+  renderLeaveGrid();
+  updateTimelineSelect();
+}
+
+function removePerson(id){
+  people = people.filter(p=>p.id!==id);
+  savePeople();
+  renderPeople();
+  renderLeaveGrid();
+  updateTimelineSelect();
+}
+
+function toggleElig(id, key, val){
+  const p = people.find(p=>p.id===id);
+  if(!p) return;
+  if(key === 'isHuowei'){
+    p.isHuowei = val;
+    if(val) p.isFuwei = false;
+  } else if(key === 'isFuwei'){
+    p.isFuwei = val;
+    if(val) p.isHuowei = false;
+  } else {
+    p.elig[key] = val;
+  }
+  savePeople();
+  renderPeople();
+}
+
+function renderPeople(){
+  const tb = document.getElementById('people-rows');
+  if(!people.length){
+    tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#8DA9C4;padding:12px;">尚無名冊，請由上方新增</td></tr>';
+    return;
+  }
+  tb.innerHTML = people.map(p=>`
+    <tr>
+      <td><span class="badge-unit u-${p.unit}">${p.unit}</span> <b>${escapeHtml(p.name)}</b></td>
+      <td><input type="checkbox" ${p.elig.leita?'checked':''} ${p.isHuowei?'disabled':''} onchange="toggleElig(${p.id},'leita',this.checked)"></td>
+      <td><input type="checkbox" ${p.elig.tongta?'checked':''} ${p.isHuowei?'disabled':''} onchange="toggleElig(${p.id},'tongta',this.checked)"></td>
+      <td><input type="checkbox" ${p.elig.angong?'checked':''} ${p.isHuowei?'disabled':''} onchange="toggleElig(${p.id},'angong',this.checked)"></td>
+      <td><input type="checkbox" ${p.elig.zhiri?'checked':''} ${p.isHuowei?'disabled':''} onchange="toggleElig(${p.id},'zhiri',this.checked)"></td>
+      <td><input type="checkbox" ${p.elig.menkou?'checked':''} ${p.isHuowei?'disabled':''} onchange="toggleElig(${p.id},'menkou',this.checked)"></td>
+      <td><input type="checkbox" ${p.elig.jigan?'checked':''} onchange="toggleElig(${p.id},'jigan',this.checked)"></td>
+      <td><input type="checkbox" ${p.isHuowei?'checked':''} onchange="toggleElig(${p.id},'isHuowei',this.checked)"></td>
+      <td><input type="checkbox" ${p.isFuwei?'checked':''} onchange="toggleElig(${p.id},'isFuwei',this.checked)"></td>
+      <td><button class="del-btn" onclick="removePerson(${p.id})">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('add-person').addEventListener('click', ()=>{
+  const u = document.getElementById('new-unit').value;
+  const n = document.getElementById('new-name').value;
+  addPerson(u, n);
+  document.getElementById('new-name').value = '';
+});
+document.getElementById('new-name').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ document.getElementById('add-person').click(); }
+});
+document.getElementById('bulk-add').addEventListener('click', ()=>{
+  const t = document.getElementById('bulk-names').value;
+  t.split('\n').forEach(line=>{
+    line = line.trim();
+    if(!line) return;
+    const parts = line.split(/\s+/);
+    if(parts.length >= 2 && ['中','雷','通','補'].includes(parts[0])){
+      addPerson(parts[0], parts[1]);
+    } else {
+      addPerson('中', line);
+    }
+  });
+  document.getElementById('bulk-names').value = '';
+});
+
+// ================= 年月份與萬年曆 =================
+const curDate = new Date();
+document.getElementById('f-year').value = curDate.getFullYear();
+document.getElementById('f-month').value = curDate.getMonth();
+
+function currentYM(){
+  return {
+    year: parseInt(document.getElementById('f-year').value,10),
+    monthIndex: parseInt(document.getElementById('f-month').value,10)
+  };
+}
+
+// 需求與休假表記憶
+const reqState = {
+  leita:{}, tongta:{tt1:{}, tt2:{}, tt3:{}}, angong:{}, zhiri:{},
+  menkou:{}, jigan:{jg1:{}, jg2:{}}, daoxiu:{}
+};
+DUTY_DEFS.menkou.shifts.forEach(sh=> reqState.menkou[sh.key] = {});
+
+function renderReqGrid(){
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+  let th = '<thead><tr><th class="rowlabel">勤務項目</th>';
+  cal.forEach(c=>{
+    th += `<th class="${c.weekday===0||c.weekday===6?'weekend':''}">${c.day}<br>${WEEK[c.weekday]}</th>`;
+  });
+  th += '</tr></thead><tbody>';
+
+  // 1班制 / 3班制 / 門狗
+  const list = [
+    {key:'leita', label:'雷塔班 (0700-0700)'},
+    {key:'tongta_tt1', label:'通塔 早 (0700-1130)'},
+    {key:'tongta_tt2', label:'通塔 中 (1130-1730)'},
+    {key:'tongta_tt3', label:'通塔 夜 (1730-0700)'},
+    {key:'angong', label:'安宮 (0600-0600)'},
+    {key:'zhiri', label:'值曰 (0730-0730)'},
+    ...DUTY_DEFS.menkou.shifts.map(s=>({key:'mk_'+s.key, label:`門狗 ${s.label}`})),
+    {key:'jg1', count:true, max:10, def:6, label:'雞肝 早 (需求6員)'},
+    {key:'jg2', count:true, max:10, def:5, label:'雞肝 中 (需求5員)'},
+    {key:'daoxiu', count:true, max:8, def:3, label:'島休 (每天2-6員)'}
+  ];
+
+  list.forEach(item=>{
+    th += `<tr><th class="rowlabel">${item.label}</th>`;
+    cal.forEach(c=>{
+      if(item.count){
+        th += `<td class="chkcell"><input type="number" min="0" max="${item.max}" value="${item.def}" id="req_${item.key}_${c.day}"></td>`;
+      } else {
+        th += `<td class="chkcell"><input type="checkbox" checked id="req_${item.key}_${c.day}"></td>`;
+      }
+    });
+    th += `</tr>`;
+  });
+
+  th += '</tbody>';
+  document.getElementById('req-table').innerHTML = th;
+}
+
+function renderLeaveGrid(){
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+  const tbl = document.getElementById('leave-table');
+  if(!people.length){
+    tbl.innerHTML = '<tr><td style="padding:10px;">請先建立人員名單</td></tr>';
+    return;
+  }
+  let th = '<thead><tr><th class="rowlabel">姓名/單位</th>';
+  cal.forEach(c=>{
+    th += `<th class="${c.weekday===0||c.weekday===6?'weekend':''}">${c.day}<br>${WEEK[c.weekday]}</th>`;
+  });
+  th += '</tr></thead><tbody>';
+
+  people.forEach(p=>{
+    th += `<tr><th class="rowlabel"><span class="badge-unit u-${p.unit}">${p.unit}</span> ${escapeHtml(p.name)}</th>`;
+    cal.forEach(c=>{
+      const dStr = ymd(year, monthIndex, c.day);
+      const isL = p.leaveDates.has(dStr);
+      th += `<td class="chkcell"><input type="checkbox" ${isL?'checked':''} onchange="toggleLeave(${p.id},'${dStr}',this.checked)"></td>`;
+    });
+    th += '</tr>';
+  });
+  th += '</tbody>';
+  tbl.innerHTML = th;
+}
+
+function toggleLeave(pId, dStr, val){
+  const p = people.find(x=>x.id===pId);
+  if(!p) return;
+  if(val) p.leaveDates.add(dStr); else p.leaveDates.delete(dStr);
+  savePeople();
+}
+
+document.getElementById('f-year').addEventListener('change', ()=>{ renderReqGrid(); renderLeaveGrid(); });
+document.getElementById('f-month').addEventListener('change', ()=>{ renderReqGrid(); renderLeaveGrid(); });
+
+loadPeople();
+renderPeople();
+renderReqGrid();
+renderLeaveGrid();
+
+// ================= 排班核心演算法 =================
+let lastSlots = [];
+let overrides = {}; // 手動覆蓋
+
+function overrideKey(y,m,k,s,d,idx){ return `${y}-${m}_${k}_${s}_${d}_${idx}`; }
+
+function runAutoSchedule(){
+  if(!people.length){ alert('請先建立人員名單！'); return; }
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+
+  // 初始化每個人員排班與時段狀態
+  const state = {};
+  people.forEach(p=>{
+    const blocks = [];
+    // 個人休假
+    p.leaveDates.forEach(ds=>{
+      const [yy,mm,dd] = ds.split('-').map(Number);
+      blocks.push({
+        start: new Date(yy, mm-1, dd, 0,0,0),
+        end: new Date(yy, mm-1, dd+1, 0,0,0),
+        type: 'leave', reason: `${dd}日公休`
+      });
+    });
+    state[p.id] = {
+      assignments: [],
+      blocks: blocks,
+      counts: {leita:0, tongta:0, angong:0, zhiri:0, menkou:0, jigan:0, daoxiu:0, total:0},
+      hardMenkouDates: new Set() // 門狗艱苦時段連續計數
+    };
+  });
+
+  const slots = [];
+
+  // 輔助函式：產生槽位
+  function addSlot(dutyKey, shiftKey, shiftDef, d, subIdx=0){
+    const sDate = atTime(new Date(year, monthIndex, d), Math.floor(shiftDef.start/60), shiftDef.start%60);
+    const eDate = atTime(new Date(year, monthIndex, d), Math.floor(shiftDef.end/60), shiftDef.end%60, shiftDef.dayOffset);
+    slots.push({
+      dutyKey, shiftKey, shiftDef, day:d, subIdx, start:sDate, end:eDate,
+      assignedId:null, assignedName:'', unmet:false, override:false, conflict:false, conflictReason:''
+    });
+  }
+
+  // 1. 建構本月所有勤務時段
+  cal.forEach(c=>{
+    const d = c.day;
+    // 雷塔班
+    if(document.getElementById(`req_leita_${d}`)?.checked) addSlot('leita','lt',DUTY_DEFS.leita.shifts[0], d);
+    // 通塔班
+    if(document.getElementById(`req_tongta_tt1_${d}`)?.checked) addSlot('tongta','tt1',DUTY_DEFS.tongta.shifts[0], d);
+    if(document.getElementById(`req_tongta_tt2_${d}`)?.checked) addSlot('tongta','tt2',DUTY_DEFS.tongta.shifts[1], d);
+    if(document.getElementById(`req_tongta_tt3_${d}`)?.checked) addSlot('tongta','tt3',DUTY_DEFS.tongta.shifts[2], d);
+    // 安宮
+    if(document.getElementById(`req_angong_${d}`)?.checked) addSlot('angong','ag',DUTY_DEFS.angong.shifts[0], d);
+    // 值曰
+    if(document.getElementById(`req_zhiri_${d}`)?.checked) addSlot('zhiri','zr',DUTY_DEFS.zhiri.shifts[0], d);
+    // 門狗 12 班
+    DUTY_DEFS.menkou.shifts.forEach(sh=>{
+      if(document.getElementById(`req_mk_${sh.key}_${d}`)?.checked) addSlot('menkou', sh.key, sh, d);
+    });
+    // 雞肝 早班/中班
+    const jg1Cnt = parseInt(document.getElementById(`req_jg1_${d}`)?.value||'6', 10);
+    for(let i=0; i<jg1Cnt; i++) addSlot('jigan','jg1',DUTY_DEFS.jigan.shifts[0], d, i);
+    const jg2Cnt = parseInt(document.getElementById(`req_jg2_${d}`)?.value||'5', 10);
+    for(let i=0; i<jg2Cnt; i++) addSlot('jigan','jg2',DUTY_DEFS.jigan.shifts[1], d, i);
+    // 島休
+    const dxCnt = parseInt(document.getElementById(`req_daoxiu_${d}`)?.value||'3', 10);
+    for(let i=0; i<dxCnt; i++) addSlot('daoxiu','dx',DUTY_DEFS.daoxiu.shifts[0], d, i);
+  });
+
+  // 套用手動指定（Pass 1）
+  slots.forEach(s=>{
+    const ovKey = overrideKey(year, monthIndex, s.dutyKey, s.shiftKey, s.day, s.subIdx);
+    if(overrides[ovKey] !== undefined){
+      s.override = true;
+      const pid = overrides[ovKey];
+      if(pid){
+        const person = people.find(p=>p.id===pid);
+        if(person){
+          s.assignedId = person.id;
+          s.assignedName = person.name;
+          assignToPerson(s, person, state, year, monthIndex);
+        }
+      }
+    }
+  });
+
+  // 排班指派與補休計算
+  function computeRestInterval(slot){
+    const dKey = slot.dutyKey;
+    const endD = slot.end;
+    // 雷塔、通塔晚班、安宮、值曰 下班均補休至 13:30
+    if(dKey === 'leita' || (dKey === 'tongta' && slot.shiftKey === 'tt3') || dKey === 'angong' || dKey === 'zhiri'){
+      return { end: atTime(endD, 13, 30), reason: `${DUTY_DEFS[dKey].label}下班補休至 13:30` };
+    }
+    // 門狗防疲勞與補休：需間隔 6 小時
+    if(dKey === 'menkou'){
+      return { end: new Date(endD.getTime() + 6*3600*1000), reason: '門狗需間隔 6 小時以上' };
+    }
+    // 雞肝補休：大夜補休至 09:30；1130-1330 補休至 15:30
+    if(dKey === 'jigan'){
+      if(slot.shiftDef.start === t(11,30)){
+        return { end: atTime(endD, 15, 30), reason: '雞肝 1130-1330 補休至 15:30' };
+      }
+    }
+    return null;
+  }
+
+  function assignToPerson(slot, person, state, y, m){
+    const s = state[person.id];
+    s.assignments.push({ start:slot.start, end:slot.end, label:`${DUTY_DEFS[slot.dutyKey].label} ${slot.shiftDef.label}`, dutyKey:slot.dutyKey, day:slot.day });
+    s.counts[slot.dutyKey] = (s.counts[slot.dutyKey]||0) + 1;
+    s.counts.total++;
+
+    // 門狗艱苦時段追蹤 (2330-0130, 0130-0330, 0330-0530, 1130-1330)
+    if(slot.dutyKey === 'menkou' && HARD_MENKOU_STARTS.includes(slot.shiftDef.start)){
+      s.hardMenkouDates.add(slot.day);
+    }
+
+    // 補休鎖定
+    const rest = computeRestInterval(slot);
+    if(rest){
+      s.blocks.push({ start:slot.end, end:rest.end, type:'rest', reason:rest.reason });
+    }
+
+    // 連帶規則 1：雞肝夜班 (1730-0730) 由 1730-0730 門狗人員兼任（共計 7 員）
+    if(slot.dutyKey === 'menkou'){
+      // 門狗夜間班次連帶計入雞肝夜班支援
+      if(slot.shiftDef.start >= t(17,30) || slot.shiftDef.start <= t(5,30)){
+        s.counts.jigan = (s.counts.jigan||0) + 1;
+      }
+    }
+  }
+
+  // 衝突檢查
+  function isPersonConflict(person, slot, state){
+    const s = state[person.id];
+    // 1. 資格與身分限制
+    if(person.isHuowei && !['jigan','daoxiu'].includes(slot.dutyKey)){
+      return { conflict:true, reason:'伙委只能擔任雞肝或排定島休' };
+    }
+    if(!person.elig[slot.dutyKey] && !person.isHuowei){
+      return { conflict:true, reason:`不具備 ${DUTY_DEFS[slot.dutyKey].label} 資格` };
+    }
+
+    // 2. 副委聯鎖避開限制：伙委在值島休或休假的時間，副委不排勤務
+    if(person.isFuwei && slot.dutyKey !== 'daoxiu'){
+      const huoweis = people.filter(p=>p.isHuowei);
+      for(const hw of huoweis){
+        // 檢查該日該伙委是否休假或排島休
+        const isHwLeave = hw.leaveDates.has(ymd(year, monthIndex, slot.day));
+        const isHwDaoxiu = state[hw.id].assignments.some(a=>a.dutyKey==='daoxiu' && a.day===slot.day);
+        if(isHwLeave || isHwDaoxiu){
+          return { conflict:true, reason:'伙委島休或休假中，副委維持在位不排勤務' };
+        }
+      }
+    }
+
+    // 3. 重疊與補休檢查
+    for(const a of s.assignments){
+      if(overlaps(slot.start, slot.end, a.start, a.end)){
+        return { conflict:true, reason:`與【${a.label}】勤務時間衝突` };
+      }
+    }
+    for(const b of s.blocks){
+      if(overlaps(slot.start, slot.end, b.start, b.end)){
+        // 島休與補休允許重疊，其餘勤務不允許
+        if(slot.dutyKey === 'daoxiu' && b.type === 'rest') continue;
+        return { conflict:true, reason:b.reason };
+      }
+    }
+
+    // 4. 門狗艱苦時段連續上限檢驗：不能連續 3 天以上值艱苦時段
+    if(slot.dutyKey === 'menkou' && HARD_MENKOU_STARTS.includes(slot.shiftDef.start)){
+      const d = slot.day;
+      if(s.hardMenkouDates.has(d-1) && s.hardMenkouDates.has(d-2)){
+        return { conflict:true, reason:'門狗艱苦時段不能連續值勤超過2天' };
+      }
+    }
+
+    return { conflict:false };
+  }
+
+  // 公平排序評分器
+  function getCandidateComparator(dutyKey, state){
+    return (a,b)=>{
+      const sa = state[a.id], sb = state[b.id];
+      const ca = sa.counts[dutyKey]||0, cb = sb.counts[dutyKey]||0;
+      if(ca !== cb) return ca - cb; // 該勤務少者優先
+      return sa.counts.total - sb.counts.total; // 總勤務少者優先
+    };
+  }
+
+  // 先將伙委預排 2 天島休
+  const huoweis = people.filter(p=>p.isHuowei);
+  huoweis.forEach(hw=>{
+    const dxSlots = slots.filter(s=>s.dutyKey==='daoxiu' && !s.override && !s.assignedId);
+    let assignedDays = 0;
+    for(const sl of dxSlots){
+      if(assignedDays >= 2) break;
+      if(!isPersonConflict(hw, sl, state).conflict){
+        sl.assignedId = hw.id; sl.assignedName = hw.name;
+        assignToPerson(sl, hw, state, year, monthIndex);
+        assignedDays++;
+      }
+    }
+  });
+
+  // Pass 2: 依優先順序排定其餘勤務
+  PRIORITY_ORDER.forEach(dutyKey=>{
+    const curSlots = slots.filter(s=>s.dutyKey===dutyKey && !s.override && !s.assignedId);
+    curSlots.sort((a,b)=>a.start - b.start);
+
+    for(const slot of curSlots){
+      const candidates = people.filter(p=>!isPersonConflict(p, slot, state).conflict);
+      if(!candidates.length){
+        slot.unmet = true;
+      } else {
+        candidates.sort(getCandidateComparator(dutyKey, state));
+        const chosen = candidates[0];
+        slot.assignedId = chosen.id;
+        slot.assignedName = chosen.name;
+        assignToPerson(slot, chosen, state, year, monthIndex);
+      }
+    }
+  });
+
+  lastSlots = slots;
+  validateConflicts(year, monthIndex);
+  renderSchedule();
+  renderStatsTable();
+  updateTimelineView();
+}
+
+// 衝突驗證（針對手動調整）
+function validateConflicts(year, monthIndex){
+  const byPerson = {};
+  lastSlots.forEach(s=>{
+    s.conflict = false; s.conflictReason = '';
+    if(s.assignedId){
+      (byPerson[s.assignedId] = byPerson[s.assignedId]||[]).push(s);
+    }
+  });
+
+  Object.entries(byPerson).forEach(([pStr, slist])=>{
+    const p = people.find(x=>x.id===parseInt(pStr,10));
+    for(let i=0; i<slist.length; i++){
+      for(let j=i+1; j<slist.length; j++){
+        if(overlaps(slist[i].start, slist[i].end, slist[j].start, slist[j].end)){
+          slist[i].conflict = true; slist[j].conflict = true;
+          slist[i].conflictReason = `與 ${DUTY_DEFS[slist[j].dutyKey].label} 時間重疊`;
+          slist[j].conflictReason = `與 ${DUTY_DEFS[slist[i].dutyKey].label} 時間重疊`;
+        }
+      }
+    }
+  });
+}
+
+// ================= 班表與統計表格渲染 =================
+function renderSchedule(){
+  const table = document.getElementById('schedule-table');
+  if(!lastSlots.length){
+    table.innerHTML = '';
+    document.getElementById('stat-banner-wrap').innerHTML = '<div style="padding:20px;text-align:center;color:#666;">名冊已建立完成，請點選左側「執行智慧公平自動排班」</div>';
+    return;
+  }
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+  document.getElementById('ledger-title').textContent = `${year} 年 ${monthIndex+1} 月 中隊暨大隊勤務總表`;
+
+  let thead = '<thead><tr><th class="rowlabel">勤務 / 班別</th>';
+  cal.forEach(c=>{
+    thead += `<th class="${c.weekday===0||c.weekday===6?'weekend':''}">${c.day}<br>${WEEK[c.weekday]}</th>`;
+  });
+  thead += '</tr></thead><tbody>';
+
+  // 整理 row
+  const rowList = [];
+  ALL_DUTIES.forEach(dKey=>{
+    const def = DUTY_DEFS[dKey];
+    def.shifts.forEach(sh=>{
+      const maxSub = Math.max(...lastSlots.filter(s=>s.dutyKey===dKey && s.shiftKey===sh.key).map(s=>s.subIdx), 0);
+      for(let i=0; i<=maxSub; i++){
+        rowList.push({ dutyKey:dKey, shiftKey:sh.key, subIdx:i, label:`${def.label} ${sh.label}${maxSub>0?` [員${i+1}]`:''}` });
+      }
+    });
+  });
+
+  let prevD = '';
+  rowList.forEach(r=>{
+    const gapCls = prevD && prevD !== r.dutyKey ? ' class="group-gap"' : '';
+    prevD = r.dutyKey;
+    thead += `<tr${gapCls}><th class="rowlabel">${r.label}</th>`;
+    cal.forEach(c=>{
+      const s = lastSlots.find(x=>x.dutyKey===r.dutyKey && x.shiftKey===r.shiftKey && x.subIdx===r.subIdx && x.day===c.day);
+      if(!s){
+        thead += '<td class="cell inactive">－</td>';
+      } else {
+        const cls = 'cell' + (s.unmet?' unmet':'') + (s.override?' override':'') + (s.conflict?' conflict':'');
+        const txt = s.assignedName || (s.unmet?'⚠缺人':'－');
+        thead += `<td class="${cls}" title="${s.conflict?s.conflictReason:''}" onclick="openOverrideSelect('${s.dutyKey}','${s.shiftKey}',${s.day},${s.subIdx})">${txt}</td>`;
+      }
+    });
+    thead += '</tr>';
+  });
+
+  thead += '</tbody>';
+  table.innerHTML = thead;
+
+  const unmetCnt = lastSlots.filter(s=>s.unmet).length;
+  const conflictCnt = lastSlots.filter(s=>s.conflict).length;
+  document.getElementById('stat-banner-wrap').innerHTML = `
+    <div class="stat-banner">
+      <div class="stat-chip"><span class="num">${lastSlots.length}</span>總勤務班次</div>
+      <div class="stat-chip"><span class="num">${people.length}</span>參排人員總數</div>
+      <div class="stat-chip ${unmetCnt>0?'warn':''}"><span class="num">${unmetCnt}</span>未排滿班次</div>
+      <div class="stat-chip ${conflictCnt>0?'warn':''}"><span class="num">${conflictCnt}</span>手動衝突班次</div>
+    </div>
+  `;
+}
+
+// 需求 1: 設計表格統計每個人各個值班的總數
+function renderStatsTable(){
+  const tbl = document.getElementById('stats-table');
+  const counts = {};
+  people.forEach(p=>{
+    counts[p.id] = {leita:0, tongta:0, angong:0, zhiri:0, menkou:0, jigan:0, daoxiu:0, total:0};
+  });
+  lastSlots.forEach(s=>{
+    if(s.assignedId && counts[s.assignedId]){
+      counts[s.assignedId][s.dutyKey]++;
+      counts[s.assignedId].total++;
+    }
+  });
+
+  let h = `<thead><tr>
+    <th style="text-align:left;padding-left:8px;">單位 / 姓名</th>
+    <th>雷塔</th><th>通塔</th><th>安宮</th><th>值曰</th><th>門狗</th><th>雞肝</th><th>島休</th><th>總值勤數</th>
+  </tr></thead><tbody>`;
+
+  people.forEach(p=>{
+    const c = counts[p.id];
+    h += `<tr>
+      <td class="name"><span class="badge-unit u-${p.unit}">${p.unit}</span> ${escapeHtml(p.name)} ${p.isHuowei?'(伙委)':''} ${p.isFuwei?'(副委)':''}</td>
+      <td>${c.leita}</td><td>${c.tongta}</td><td>${c.angong}</td><td>${c.zhiri}</td><td>${c.menkou}</td><td>${c.jigan}</td><td>${c.daoxiu}</td>
+      <td style="font-weight:bold;color:#C94A29;">${c.total}</td>
+    </tr>`;
+  });
+  h += '</tbody>';
+  tbl.innerHTML = h;
+}
+
+// 需求 2: 每日每時段出勤甘特圖（防空閒）
+function updateTimelineSelect(){
+  const sel = document.getElementById('timeline-person-select');
+  sel.innerHTML = people.map(p=>`<option value="${p.id}">[${p.unit}] ${p.name}</option>`).join('');
+  sel.onchange = updateTimelineView;
+}
+
+function updateTimelineView(){
+  const sel = document.getElementById('timeline-person-select');
+  const tbl = document.getElementById('timeline-table');
+  if(!people.length || !sel.value || !lastSlots.length){
+    tbl.innerHTML = '<tr><td style="padding:10px;text-align:center;">無排班資料</td></tr>';
+    return;
+  }
+  const pid = parseInt(sel.value,10);
+  const p = people.find(x=>x.id===pid);
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+
+  let h = '<thead><tr><th class="time-hdr">日期</th>';
+  for(let i=0; i<24; i++) h += `<th class="time-hdr">${String(i).padStart(2,'0')}:00</th>`;
+  h += '</tr></thead><tbody>';
+
+  cal.forEach(c=>{
+    const d = c.day;
+    h += `<tr><th class="time-hdr" style="text-align:left;padding-left:4px;">${d}日 (${WEEK[c.weekday]})</th>`;
+    // 檢查 24 小時每小時狀態
+    for(let hr=0; hr<24; hr++){
+      const checkStart = new Date(year, monthIndex, d, hr, 0, 0);
+      const checkEnd = new Date(year, monthIndex, d, hr+1, 0, 0);
+
+      // 是否在值勤
+      const activeDuty = lastSlots.find(s=>s.assignedId===pid && overlaps(checkStart, checkEnd, s.start, s.end));
+      if(activeDuty){
+        h += `<td class="duty-block" style="background:#E07A5F;" title="${DUTY_DEFS[activeDuty.dutyKey].label}">${DUTY_DEFS[activeDuty.dutyKey].label[0]}</td>`;
+      } else {
+        // 是否為補休或休假
+        let isRest = false;
+        if(p.leaveDates.has(ymd(year, monthIndex, d))){
+          h += `<td class="rest-block" title="排休">休</td>`;
+          isRest = true;
+        } else {
+          h += `<td class="free-block" title="備勤/待命空閒">閒</td>`;
+        }
+      }
+    }
+    h += '</tr>';
+  });
+  h += '</tbody>';
+  tbl.innerHTML = h;
+}
+
+// ================= 手動指定人員覆蓋 =================
+function openOverrideSelect(dutyKey, shiftKey, day, subIdx){
+  const {year, monthIndex} = currentYM();
+  const key = overrideKey(year, monthIndex, dutyKey, shiftKey, day, subIdx);
+  const currentSlot = lastSlots.find(s=>s.dutyKey===dutyKey && s.shiftKey===shiftKey && s.day===day && s.subIdx===subIdx);
+  if(!currentSlot) return;
+
+  const names = people.map((p,idx)=>`${idx+1}. [${p.unit}] ${p.name}`).join('\n');
+  const ans = prompt(`【手動指派人員】\n目前班別：${DUTY_DEFS[dutyKey].label} (${day}日)\n請輸入人員編號 (輸入 0 清除指派)：\n\n${names}`);
+  if(ans === null) return;
+  const num = parseInt(ans, 10);
+  if(num === 0){
+    overrides[key] = null;
+  } else if(num > 0 && num <= people.length){
+    overrides[key] = people[num-1].id;
+  }
+  runAutoSchedule();
+}
+
+document.getElementById('generate').addEventListener('click', runAutoSchedule);
+document.getElementById('clear-overrides').addEventListener('click', ()=>{
+  if(confirm('確定清除所有手動指定並重新自動排班？')){
+    overrides = {};
+    runAutoSchedule();
+  }
+});
+
+// ================= CSV 匯出 =================
+document.getElementById('export-schedule').addEventListener('click', ()=>{
+  if(!lastSlots.length){ alert('尚未排班！'); return; }
+  const {year, monthIndex} = currentYM();
+  const cal = getMonthDays(year, monthIndex);
+  const rows = [['勤務班別', ...cal.map(c=>`${c.day}日(${WEEK[c.weekday]})`)]];
+  // 建立內容
+  const table = document.getElementById('schedule-table');
+  table.querySelectorAll('tr').forEach(tr=>{
+    const r = [];
+    tr.querySelectorAll('th,td').forEach(cell=> r.push(cell.innerText.replace(/\n/g,' ')));
+    if(r.length) rows.push(r);
+  });
+  downloadCSV(`${year}年${monthIndex+1}月大隊勤務總表.csv`, rows);
+});
+
+document.getElementById('export-stats').addEventListener('click', ()=>{
+  if(!lastSlots.length){ alert('尚未排班！'); return; }
+  const {year, monthIndex} = currentYM();
+  const rows = [];
+  document.getElementById('stats-table').querySelectorAll('tr').forEach(tr=>{
+    const r = [];
+    tr.querySelectorAll('th,td').forEach(c=> r.push(c.innerText));
+    rows.push(r);
+  });
+  downloadCSV(`${year}年${monthIndex+1}月勤務統計.csv`, rows);
+});
+
+function downloadCSV(fname, rows){
+  const content = '\uFEFF' + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([content], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname; a.click();
+}
+
+// ================= Google 試算表備份 / 登入整合 =================
+const CLIENT_ID = '567072597725-pjfg23uoabagdms6gk3kjqotpmtsm6pt.apps.googleusercontent.com';
+const API_KEY = 'AIzaSyDZcG-D8XjxHpxMx41OkaCdCuh9BWRVVYA';
+const SPREADSHEET_ID = '1-chfky1aamyOb-004lIWXUijSMDFPydS152u9Q9-Zyo';
+let tokenClient;
+let gapiInited=false, gisInited=false;
+
+function gapiLoaded(){
+  gapi.load('client', async ()=>{
+    await gapi.client.init({ apiKey:API_KEY, discoveryDocs:['https://sheets.googleapis.com/$discovery/rest?version=v4'] });
+    gapiInited = true;
+    checkReady();
+  });
+}
+function gisLoaded(){
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    callback: ''
+  });
+  gisInited = true;
+  checkReady();
+}
+function checkReady(){
+  if(gapiInited && gisInited){
+    document.getElementById('g-status').textContent = '⚪ Google 連線已準備完畢，可連結帳號進行雲端備份';
+  }
+}
+document.getElementById('btn-g-auth').addEventListener('click', ()=>{
+  tokenClient.callback = (resp)=>{
+    if(resp.error) return;
+    document.getElementById('g-status').textContent = '🟢 Google 授權成功，隨時可備份或還原';
+    document.getElementById('btn-g-save').disabled = false;
+    document.getElementById('btn-g-load').disabled = false;
+  };
+  tokenClient.requestAccessToken({ prompt:'select_account' });
+});
+
+document.getElementById('btn-g-save').addEventListener('click', async ()=>{
+  const {year, monthIndex} = currentYM();
+  const pack = {
+    v: 4, year, month: monthIndex+1,
+    people: people.map(p=>({ ...p, leaveDates:Array.from(p.leaveDates) })),
+    overrides
+  };
+  const label = `${year}年${monthIndex+1}月中隊排班備份 (${new Date().toLocaleTimeString()})`;
+  try{
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Sheet1!A:C',
+      valueInputOption: 'RAW',
+      resource: { values: [[label, new Date().toISOString(), JSON.stringify(pack)]] }
+    });
+    alert('已成功上傳備份至 Google 雲端！');
+  }catch(e){ alert('上傳失敗：' + e.message); }
+});
+
+document.getElementById('btn-g-load').addEventListener('click', async ()=>{
+  try{
+    const res = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId:SPREADSHEET_ID, range:'Sheet1!A:C' });
+    const rows = res.result.values;
+    if(!rows || !rows.length){ alert('雲端無備份資料'); return; }
+    const opts = rows.map((r,idx)=>`${idx+1}. ${r[0]}`).join('\n');
+    const ans = prompt(`請輸入欲載入之編號 (1~${rows.length})：\n\n${opts}`);
+    const idx = parseInt(ans,10)-1;
+    if(isNaN(idx)||idx<0||idx>=rows.length) return;
+
+    const data = JSON.parse(rows[idx][2]);
+    document.getElementById('f-year').value = data.year;
+    document.getElementById('f-month').value = data.month-1;
+    people = data.people.map(p=>({ ...p, leaveDates:new Set(p.leaveDates) }));
+    overrides = data.overrides || {};
+    savePeople();
+    renderPeople();
+    renderReqGrid();
+    renderLeaveGrid();
+    runAutoSchedule();
+    alert('歷史班表還原完成！');
+  }catch(e){ alert('載入失敗：' + e.message); }
+});
+
+// 初始化選單
+updateTimelineSelect();
+</script>
+</body>
+</html>
